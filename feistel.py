@@ -1,3 +1,4 @@
+import sys
 import hashlib
 
 """ Class that implements a Feistel Cipher in ECB mode
@@ -22,27 +23,31 @@ class FeistelNetwork():
 
         # [Prekey: 64] [R x Subkeys: 32] [Postkey: 64]
         keys = {
-            "prekey" : key_data[0:block_size],
-            "roundkeys" : [key_data[block_size + (half_block_size * a): block_size + half_block_size + (half_block_size * a)] for a in range(round_count)],
+            "prekey" : key_data[:block_size],
+            "roundkeys" : lambda r : key_data[block_size + (half_block_size * r): block_size + half_block_size + (half_block_size * r)],
             "postkey" : key_data[-block_size:],
         }
       
         return keys
 
     def _xor(self, a, b):
-        a_i = int.from_bytes(a, "little")
-        b_i = int.from_bytes(b, "little")
-        return (a_i ^ b_i).to_bytes(len(a), "little")
+        byteorder = sys.byteorder
+        a_i = int.from_bytes(a, byteorder)
+        b_i = int.from_bytes(b, byteorder)
+        return (a_i ^ b_i).to_bytes(len(a), byteorder)
 
-
-    def _reverse(self, block):
+    def _split(self, block):
         L = block[:self.block_size//2]
         R = block[self.block_size//2:]
+
+        return L, R
+
+    def _reverse(self, block):
+        L, R = self._split(block)
         return R+L
 
     def round(self, block, round_key):
-        L = block[:self.block_size//2]
-        R = block[self.block_size//2:]
+        L, R = self._split(block)
         
         Rprime = self._xor(R, round_key)
         sha256 = hashlib.sha256()
@@ -59,7 +64,7 @@ class FeistelNetwork():
 
         # Rounds
         for i in range(self.round_count):
-            block = self.round(block, self.keys["roundkeys"][i])
+            block = self.round(block, self.keys["roundkeys"](i))
 
         # Reverse half-block
         block = self._reverse(block)
@@ -75,8 +80,8 @@ class FeistelNetwork():
         block = self._xor(block, self.keys["postkey"])
 
         # Rounds
-        for i in range(self.round_count - 1, -1, -1):
-            block = self.round(block, self.keys["roundkeys"][i])
+        for i in reversed(range(self.round_count)):
+            block = self.round(block, self.keys["roundkeys"](i))
 
         # Reverse half-block
         block = self._reverse(block)

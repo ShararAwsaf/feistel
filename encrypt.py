@@ -6,7 +6,7 @@ import argparse
 from pkcs import PKCS7
 from feistel import FeistelNetwork
 from modes import ECB, CBC, CTR
-from iterators import file_block_iterator, eof_signal_iterator
+from iterators import file_block_iterator
 
 """
 The Mike Encryption Standard
@@ -66,16 +66,12 @@ def main():
         raise ValueError("Mode of operation {} is not recognised".format(args.mode))
 
     # Encrypt or decrypt
-    if args.encrypt:
-        file_blocks = file_block_iterator(args.input_file, cipher.block_size)
-        with open(args.output_file, 'wb') as f:
-            for ciphertext in mode.encrypt(file_blocks):
-                f.write(ciphertext)
-    else:
-        file_blocks = file_block_iterator(args.input_file, cipher.block_size)
-        with open(args.output_file, 'wb') as f:
-            for plaintext in mode.decrypt(file_blocks):
-                f.write(plaintext)
+    operation = mode.encrypt if args.encrypt else mode.decrypt
+
+    file_blocks = file_block_iterator(args.input_file, cipher.block_size)
+    with open(args.output_file, 'wb') as f:
+        for block in operation(file_blocks):
+            f.write(block)
 
 
 if __name__ == "__main__":

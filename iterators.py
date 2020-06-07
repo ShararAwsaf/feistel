@@ -13,7 +13,7 @@ def file_block_iterator(path, block_size):
         data = f.read(block_size)
         while data != b"":
             yield data
-            data = f.read(64)
+            data = f.read(block_size)
 
 def list_block_iterator(message, block_size):
     for idx in range (0, len(message), block_size):

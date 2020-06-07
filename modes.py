@@ -1,19 +1,14 @@
 from iterators import eof_signal_iterator
-
+from utils import Utils
 """ Classes implementing modes of encryption:
 
 * We can extend this, currently only ECB, CBC and CTR is supported
 
 """
 class ModeOfOperation():
-    def __init__(self, cipher, iv = None, nonce = None):
+    def __init__(self, cipher):
         self.cipher = cipher
-        self.iv = iv
-        self.nonce = nonce
         self.block_size = cipher.block_size
-
-    def _xor(self, block1, block2):
-        return bytes([a ^ b for a, b in zip(block1, block2)])
 
 class ECB(ModeOfOperation):
     def __init__(self, cipher, padding_scheme):
@@ -57,8 +52,9 @@ class ECB(ModeOfOperation):
 class CBC(ModeOfOperation):
 
     def __init__(self, cipher, iv, padding_scheme):
-        super(CBC, self).__init__(cipher=cipher, iv=iv)
+        super(CBC, self).__init__(cipher=cipher)
         #initialize cipher_block with value None
+        self.iv = iv
         self.cipher_block = None
         self.padding_scheme = padding_scheme
 
@@ -74,22 +70,22 @@ class CBC(ModeOfOperation):
 
             if not eof:
                 self.cipher_block = self.cipher.encrypt_block(
-                    self._xor(data, self.cipher_block)
+                    Utils.xor(data, self.cipher_block)
                 )
             else:
                 #executed only once, for the last block of the file
                 block = data if not eof else self.padding_scheme.apply(data)
                 if len(block) == self.block_size:
                     self.cipher_block = self.cipher.encrypt_block(
-                        self._xor(block, self.cipher_block)
+                        Utils.xor(block, self.cipher_block)
                     )
                 elif len(block) == 2 * self.block_size:
                     last_block = self.cipher.encrypt_block(
-                        self._xor(block[:self.block_size], self.cipher_block)
+                        Utils.xor(block[:self.block_size], self.cipher_block)
                     )
                     #This will append an entire block of padding (??)
                     self.cipher_block = self.cipher.encrypt_block(
-                        self._xor(block[self.block_size:], last_block)
+                        Utils.xor(block[self.block_size:], last_block)
                     )
                     #set the cipher_block variable to be last block of real data
                     #prepended to the extra block of padding
@@ -108,7 +104,7 @@ class CBC(ModeOfOperation):
         self.cipher_block, eof = next(eof_iterator)
 
         for data, eof in eof_iterator:
-            plaintext = self._xor(
+            plaintext = Utils.xor(
                 self.cipher.decrypt_block(data), self.cipher_block
             )
             self.cipher_block = data
@@ -149,7 +145,7 @@ class CTR(ModeOfOperation):
             if eof and len(data) < self.block_size:
                 xor_block = xor_block[:len(data)]
 
-            ciphertext = self._xor(data, xor_block)
+            ciphertext = Utils.xor(data, xor_block)
             counter += 1
 
             yield ciphertext
